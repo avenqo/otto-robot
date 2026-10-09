@@ -17,7 +17,7 @@ flowchart TD
 | Layer | Short name | Role |
 | --- | --- | --- |
 | Jetson Orin Nano | `brain` | Perception, navigation, AI — lidar, webcam, YOLO, ROS2, SLAM |
-| RP2040 | `spine` | Real-time driving and close-range sensing — motors, compass, GPS, radar, microphone, displays, color sensors |
+| RP2040 | `spine` | Real-time driving and close-range sensing — motors, compass, GPS, radar, microphone, displays, head servo, rain/light/vibration sensors |
 | Flutter App | — | Remote control and live camera view, connects to the Jetson |
 
 The full hardware and pin-budget breakdown lives in [`10_concepts/otto-concept.md`](docs/otto-concept.md).
@@ -31,13 +31,14 @@ The full hardware and pin-budget breakdown lives in [`10_concepts/otto-concept.m
 
 **RP2040 (`spine`)**
 - 2× DC motors via an L298N driver
-- GY-273 compass
+- GY-273 compass (on the deck, away from the motors)
 - GPS Neo-6M
 - HLK-LD2402 human-presence radar
 - INMP441 I2S microphone
 - 2× GC9A01 round SPI displays (robot "eyes")
-- TCS34725 and TCS3200 color sensors
-- WT588D sound module, rain sensor, vibration sensor (via a PCF8575 I2C expander)
+- MG995 servo rotating the head (~180°)
+- DFPlayer Mini sound module (UART, microSD)
+- Rain sensor (analog, ADC), photoresistor (ADC), vibration sensor (via a PCF8574P I2C expander)
 
 ## App Control
 
