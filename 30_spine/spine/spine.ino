@@ -157,6 +157,8 @@ void sendTelemetry() {
                 radar, battMv);
 }
 
+// -----------------------------------
+
 void setup() {
   Serial.begin(SERIAL_BAUD);
 
@@ -189,6 +191,8 @@ void setup() {
 
   Serial.println(F("=== OTTO: Setup done ==="));
 }
+
+// -------------- Loop ---------------------
 
 void loop() {
   readSerial();
