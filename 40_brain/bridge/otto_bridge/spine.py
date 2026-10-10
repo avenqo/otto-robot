@@ -64,6 +64,7 @@ class SpineLink:
         self._telemetry: Telemetry | None = None
         self._telemetry_at = 0.0
         self._ser: serial.Serial | None = None
+        self._warned_bad_telemetry = False
         self._stop = threading.Event()
         self._threads: list[threading.Thread] = []
 
@@ -148,7 +149,7 @@ class SpineLink:
         try:
             ser.write(data)
             return True
-        except (serial.SerialException, OSError) as exc:
+        except (serial.SerialException, OSError, TypeError, ValueError) as exc:
             log.warning("write failed: %s", exc)
             self._close_port()
             return False
@@ -176,7 +177,9 @@ class SpineLink:
                 continue
             try:
                 chunk = ser.read(256)
-            except (serial.SerialException, OSError) as exc:
+            except (serial.SerialException, OSError, TypeError, ValueError) as exc:
+                # TypeError/ValueError: the writer closed the port under our feet
+                # (pyserial then reads from fd None). Must never kill this thread.
                 log.warning("read failed: %s", exc)
                 self._close_port()
                 buf = b""
@@ -195,7 +198,9 @@ class SpineLink:
             try:
                 tel = parse_telemetry(line)
             except ProtocolError as exc:
-                log.debug("dropped telemetry: %s", exc)
+                if not self._warned_bad_telemetry:
+                    self._warned_bad_telemetry = True
+                    log.warning("dropping malformed telemetry (logged once): %s", exc)
                 return
             with self._lock:
                 self._telemetry = tel

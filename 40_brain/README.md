@@ -7,7 +7,7 @@ The `brain` tier of Otto: perception, navigation, app API. It talks to the `spin
 | Stage | Content | Status |
 | --- | --- | --- |
 | 0 | System setup, udev, Docker, Tailscale — [docs/setup.md](docs/setup.md) | checklist ready |
-| 1 | Spine bridge: serial driver, watchdog feeding, telemetry, CLI | implemented, tested against a simulated spine; **not yet run on hardware** |
+| 1 | Spine bridge: serial driver, watchdog feeding, telemetry, CLI | implemented and verified on hardware (telemetry, drive, turn, kill -9 stop); tested in addition against a simulated spine |
 | 2a | App gateway compatible with the existing Flutter app: UDP commands (port 4210) + webcam as MJPEG over HTTP (port 8081) | implemented, tested without hardware; camera and app **not yet run on the real devices** |
 | 2b | New API with telemetry for the app (WebSocket/JSON) | planned |
 | 3 | Docker Compose + systemd autostart, emergency stop | planned |

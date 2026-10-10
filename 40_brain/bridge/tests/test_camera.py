@@ -83,3 +83,55 @@ def test_no_frame_gives_503():
             c.close()
     finally:
         server.close()
+
+
+class FlakySource(FakeSource):
+    """Raises for the first reads, like cv2 does when the USB camera hiccups."""
+
+    def read(self):
+        self.n += 1
+        if self.n <= 3:
+            raise RuntimeError("camera hiccup")
+        return super().read()
+
+
+def test_read_exception_does_not_kill_grab_thread():
+    server = CameraServer(FlakySource(), host="127.0.0.1", port=0, fps=100)
+    server.start()
+    try:
+        assert wait_for(lambda: server._latest() is not None, timeout=3.0)
+    finally:
+        server.close()
+
+
+def test_camera_is_reopened_after_prolonged_failure():
+    reopened = []
+
+    def reopen():
+        reopened.append(1)
+        return FakeSource()
+
+    server = CameraServer(BrokenSource(), host="127.0.0.1", port=0, fps=100, reopen=reopen)
+    server.start()
+    try:
+        assert wait_for(lambda: server._latest() is not None, timeout=6.0)
+        assert reopened
+    finally:
+        server.close()
+
+
+def test_health_goes_503_when_frames_stop():
+    src = FakeSource()
+    server = CameraServer(src, host="127.0.0.1", port=0, fps=100, stale_s=0.3)
+    server.start()
+    try:
+        assert wait_for(server._fresh)
+        server._stop.set()  # grab loop ends -> frames get stale
+        assert wait_for(lambda: not server._fresh(), timeout=2.0)
+        c, r = get(server, "/health")
+        r.read()
+        assert r.status == 503
+        c.close()
+    finally:
+        server._stop.clear()
+        server.close()

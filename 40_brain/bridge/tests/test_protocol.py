@@ -28,9 +28,14 @@ def test_parse_telemetry_invalid_heading_is_none():
 
 
 @pytest.mark.parametrize("line", [
-    "", "hello", "T,1,2,3", "T,a,0,0,0,0,0", "T,nan,0,0,0,0,0", "X,1,2,3,4,5,6",
+    "", "hello", "T,1,2,3", "T,a,0,0,0,0,0", "T,1,nan,0,0,0,0", "X,1,2,3,4,5,6",
     "T,1,2,3,4,5,6,7",
 ])
 def test_parse_telemetry_rejects(line):
     with pytest.raises(ProtocolError):
         parse_telemetry(line)
+
+
+def test_nan_heading_keeps_other_fields():
+    t = parse_telemetry("T,nan,1.5,2.5,1,0,11000")
+    assert t.heading_deg is None and (t.lat, t.lon, t.batt_mv) == (1.5, 2.5, 11000)

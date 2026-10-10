@@ -123,7 +123,7 @@ Pull-ups mitbringt (vorher mit Multimeter gegen 3.3V prüfen).
 
 | Gerät | I2C-Adresse | Hinweis |
 | --- | --- | --- |
-| GY-273 (HMC5883L) | 0x1E | fest |
+| GY-273 (hier: QMC5883P, per I2C-Scan; HMC5883L-Variante wäre 0x1E) | 0x2C | fest |
 | PCF8574 | 0x20 | A0=GND, A1=GND, A2=GND — Default-Adresse, alle Jumper unverändert lassen |
 
 Mit nur noch einem PCF8574 im Design (Farbsensoren entfernt, WT588D

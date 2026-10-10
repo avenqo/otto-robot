@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Protocol
+from typing import Callable, Protocol
 
 log = logging.getLogger(__name__)
 BOUNDARY = "otto-frame"
@@ -54,8 +54,19 @@ class OpenCvSource:
 
 
 class CameraServer:
-    def __init__(self, source: FrameSource, host: str = "0.0.0.0", port: int = 8081, fps: float = 15.0) -> None:
+    def __init__(
+        self,
+        source: FrameSource,
+        host: str = "0.0.0.0",
+        port: int = 8081,
+        fps: float = 15.0,
+        reopen: Callable[[], FrameSource] | None = None,
+        stale_s: float = 3.0,
+    ) -> None:
         self._source = source
+        self._reopen = reopen
+        self._stale = stale_s
+        self._frame_at = 0.0
         self._period = 1.0 / fps
         self._cond = threading.Condition()
         self._frame: bytes | None = None
@@ -64,6 +75,9 @@ class CameraServer:
         server = self
 
         class Handler(BaseHTTPRequestHandler):
+            timeout = 10  # seconds a client may stall a write/read before its thread is dropped
+
+            timeout = 10  # seconds; also bounds writes to a stalled client
             def log_message(self, fmt, *args):  # quiet: the stream would flood the log
                 log.debug("http %s", fmt % args)
 
@@ -83,13 +97,21 @@ class CameraServer:
                 elif path == "/stream":
                     self._stream()
                 elif path == "/health":
-                    self.send_response(200 if server._latest() else 503)
+                    self.send_response(200 if server._fresh() else 503)
                     self.send_header("Content-Length", "0")
                     self.end_headers()
                 else:
                     self.send_error(404)
 
             def _stream(self):
+                client = f"{self.client_address[0]}:{self.client_address[1]}"
+                log.info("stream client connected: %s", client)
+                try:
+                    self._stream_frames()
+                finally:
+                    log.info("stream client gone: %s", client)
+
+            def _stream_frames(self):
                 self.send_response(200)
                 self.send_header("Content-Type", f"multipart/x-mixed-replace; boundary={BOUNDARY}")
                 self.send_header("Cache-Control", "no-store")
@@ -106,7 +128,7 @@ class CameraServer:
                         )
                         self.wfile.write(frame)
                         self.wfile.write(b"\r\n")
-                except (BrokenPipeError, ConnectionResetError):
+                except (BrokenPipeError, ConnectionResetError, TimeoutError):
                     pass
 
         self._http = ThreadingHTTPServer((host, port), Handler)
@@ -139,20 +161,41 @@ class CameraServer:
             self._cond.wait_for(lambda: self._seq != seq or self._stop.is_set(), timeout=2.0)
             return (self._frame, self._seq) if self._seq != seq else (None, seq)
 
+    def _fresh(self) -> bool:
+        with self._cond:
+            return self._frame is not None and time.monotonic() - self._frame_at <= self._stale
+
+    def _read_safely(self) -> bytes | None:
+        try:
+            return self._source.read()
+        except Exception:  # e.g. cv2.error: must not kill the grab thread
+            log.exception("camera read raised")
+            return None
+
     def _grab(self) -> None:
         next_at = time.monotonic()
         failures = 0
         while not self._stop.is_set():
-            frame = self._source.read()
+            frame = self._read_safely()
             if frame is None:
                 failures += 1
-                if failures in (1, 50):
+                if failures == 1:
                     log.warning("camera returned no frame")
+                if self._reopen and failures % 30 == 0:  # ~3 s without a frame
+                    log.warning("reopening camera after %d failed reads", failures)
+                    try:
+                        self._source.close()
+                        self._source = self._reopen()
+                    except Exception:
+                        log.exception("reopen failed, will retry")
                 self._stop.wait(0.1)
                 continue
+            if failures:
+                log.info("camera recovered after %d failed reads", failures)
             failures = 0
             with self._cond:
                 self._frame = frame
+                self._frame_at = time.monotonic()
                 self._seq += 1
                 self._cond.notify_all()
             next_at += self._period

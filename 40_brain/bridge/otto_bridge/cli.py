@@ -44,11 +44,18 @@ def _serve(link: SpineLink, args: argparse.Namespace) -> None:
     camera = None
     if args.camera != "none":
         device = int(args.camera) if args.camera.isdigit() else args.camera
+        def open_camera():
+            return OpenCvSource(device, args.width, args.height)
+
         try:
-            camera = CameraServer(OpenCvSource(device, args.width, args.height), port=args.http_port, fps=args.fps)
+            camera = CameraServer(open_camera(), port=args.http_port, fps=args.fps, reopen=open_camera)
             camera.start()
         except (ImportError, RuntimeError) as exc:
             logging.getLogger(__name__).error("camera disabled: %s", exc)
+    # A silently dead thread is how a gateway ends up "up but frozen": make it loud.
+    threading.excepthook = lambda a: logging.getLogger(a.thread.name if a.thread else "thread").error(
+        "thread crashed", exc_info=(a.exc_type, a.exc_value, a.exc_traceback)
+    )
     done = threading.Event()
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: done.set())

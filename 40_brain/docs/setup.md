@@ -14,7 +14,12 @@ Tick items off as you go and note deviations at the bottom.
 
 ## 1. Spine link
 1. Plug the RP2040 in. `lsusb` shows `2e8a:…`; `dmesg | tail` shows `ttyACM0`.
-2. Install the udev rules from `../udev/99-otto.rules` (command in the file). Afterwards `ls -l /dev/otto-spine` must exist; replug if not.
+2. Install the udev rules (`40_brain/udev/99-otto.rules`; plain config, no execute bit needed). From the repo root:
+   ```bash
+   sudo cp 40_brain/udev/99-otto.rules /etc/udev/rules.d/
+   sudo udevadm control --reload && sudo udevadm trigger
+   ls -l /dev/otto-spine      # must exist; replug the Pico if not
+   ```
 3. Install the bridge:
    ```bash
    sudo apt install python3-venv python3-pip   # if missing
@@ -33,7 +38,7 @@ Tick items off as you go and note deviations at the bottom.
 ## 2. App gateway
 1. Webcam: plug in, `ls /dev/video*`; `v4l2-ctl --list-devices` (apt `v4l-utils`) shows which one is the camera.
 2. OpenCV: `sudo apt install python3-opencv`, then create the venv with `python3 -m venv --system-site-packages .venv` (recreate if you already made one).
-3. Start: `otto-bridge serve` (add `--camera /dev/video0` if index 0 is not the webcam).
+3. Start: `otto-bridge serve`. It uses `/dev/video0` by default, which is the right one when `v4l2-ctl --list-devices` lists the USB webcam first (the second node, e.g. `/dev/video1`, is usually just metadata). Otherwise pass `--camera /dev/videoN`. Check OpenCV first: `python3 -c "import cv2; print(cv2.__version__)"`.
 4. From another machine in the WLAN: open `http://<jetson-ip>:8081/stream` in a browser; test commands with
    `printf 'mf:30' | nc -u -w0 <jetson-ip> 4210` (wheels on blocks! it stops by itself after 0.4 s).
 5. In the app: *Einstellungen* → IP = Jetson IP, port 4210.

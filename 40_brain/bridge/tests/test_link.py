@@ -94,3 +94,14 @@ def test_survives_missing_port():
     time.sleep(0.2)
     assert not link.connected
     link.close()
+
+
+def test_reader_survives_port_closed_underneath(rig):
+    spine, link = rig
+    assert wait_for(lambda: link.connected)
+    link._ser.fd = None  # what pyserial looks like mid-close: read() raises TypeError
+    reader = next(t for t in link._threads if t.name == "spine-reader")
+    time.sleep(0.3)
+    assert reader.is_alive()
+    link._close_port()
+    assert wait_for(lambda: link.connected, timeout=3.0)  # writer reopens, reader resumes

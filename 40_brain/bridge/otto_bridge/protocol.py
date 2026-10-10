@@ -48,10 +48,11 @@ def parse_telemetry(line: str) -> Telemetry:
         batt_mv = int(parts[6])
     except ValueError as exc:
         raise ProtocolError(f"bad field in {line!r}: {exc}") from exc
-    if not all(math.isfinite(v) for v in (heading, lat, lon)):
+    if not (math.isfinite(lat) and math.isfinite(lon)):
         raise ProtocolError(f"non-finite field in {line!r}")
+    # A failed compass read shows up as -1 (or "nan" on older firmware): keep the rest.
     return Telemetry(
-        heading_deg=heading if 0.0 <= heading < 360.0 else None,
+        heading_deg=heading if 0.0 <= heading < 360.0 else None,  # NaN fails this test too
         lat=lat,
         lon=lon,
         gps_fix=gps_fix,

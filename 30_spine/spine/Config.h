@@ -22,7 +22,10 @@ constexpr int OTTO_PIN_MOTOR_R_EN = 5;   // PWM -> board #2 ENA+ENB
 constexpr int OTTO_PIN_I2C0_SDA = 8;
 constexpr int OTTO_PIN_I2C0_SCL = 9;
 constexpr uint8_t PCF8574_ADDR = 0x20;
-constexpr uint8_t COMPASS_ADDR = 0x1E;  // HMC5883L, fixed, no jumper
+// GY-273 boards come with two different chips: HMC5883L at 0x1E, or the newer
+// QMC5883P at 0x2C (register map differs; Compass picks the driver by address).
+// Otto's board shows up at 0x2C (I2C scan) -> QMC5883P.
+constexpr uint8_t COMPASS_ADDR = 0x2C;
 constexpr uint8_t PCF_PORT_VIBRATION = 0;       // P0: SW-420 DO (input)
 constexpr uint8_t PCF_PORT_DFPLAYER_BUSY = 1;   // P1: active-low while playing (input)
 constexpr uint8_t PCF_PORT_MOTOR_L_IN1 = 2;     // P2 -> board #1 IN1+IN4

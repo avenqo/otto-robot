@@ -197,7 +197,8 @@ void setup() {
     Serial.println(F("WARNING: PCF8574P (0x20) not responding — motor direction unavailable"));
   }
   if (!compassOk) {
-    Serial.println(F("WARNING: GY-273 compass (0x1E) not responding — heading unavailable"));
+    Serial.printf("WARNING: GY-273 compass (0x%02X) not responding or wrong chip — heading unavailable\n",
+                  COMPASS_ADDR);
   }
 
   lastCommandMs = millis();
