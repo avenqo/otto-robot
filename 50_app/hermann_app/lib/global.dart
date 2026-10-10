@@ -5,3 +5,4 @@ const SSID = 'HermannFunkt';
 const ROBOT_IP = '192.168.4.1';
 const DEFAULT_UDP_PORT = 4210;
 const UNKNOWN_IP = '0.0.0.0';
+const DEFAULT_CAMERA_PORT = 8081; // otto-bridge serve: /stream and /capture

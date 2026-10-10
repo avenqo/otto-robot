@@ -3,7 +3,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:provider/provider.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+
+import '../global.dart';
+import '../settings/settings_provider.dart';
 
 class VideoPage extends StatefulWidget {
   const VideoPage({super.key});
@@ -13,17 +17,17 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage> {
-  // ESP32-CAM IP
-  final String esp32Ip = '192.168.4.100';
+  // Camera is served by the Jetson (otto-bridge) on the robot's host.
+  String get esp32Ip => context.read<SettingsProvider>().receiverIp;
 
   late final WebViewController _controller;
 
   bool _isLoading = true;
   bool _hasError = false;
 
-  String get streamUrl => 'http://$esp32Ip:81/stream';
+  String get streamUrl => 'http://$esp32Ip:$DEFAULT_CAMERA_PORT/stream';
 
-  String get captureUrl => 'http://$esp32Ip/capture';
+  String get captureUrl => 'http://$esp32Ip:$DEFAULT_CAMERA_PORT/capture';
 
   @override
   void initState() {

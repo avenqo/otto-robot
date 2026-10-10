@@ -1,0 +1,13 @@
+# Stable device names for Otto's USB serial devices on the Jetson.
+# Install:  sudo cp 99-otto.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger
+# Check:    ls -l /dev/otto-*
+
+# spine: RP2040 running arduino-pico (Raspberry Pi VID 2e8a, native USB-CDC).
+# Only one RP2040 is attached, so VID is enough. If you add a second one,
+# pin this rule with ATTRS{serial}=="<pico-serial>" (see docs/setup.md).
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", SYMLINK+="otto-spine", GROUP="dialout", MODE="0660"
+
+# lidar: WitMotion COIN-D6 behind a USB-UART adapter. Adapter chip is not
+# recorded yet — find it with `udevadm info -a -n /dev/ttyUSB0 | grep -E 'idVendor|idProduct|serial'`
+# and uncomment with the real IDs (CP210x = 10c4:ea60, CH340 = 1a86:7523):
+# SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="otto-lidar", GROUP="dialout", MODE="0660"

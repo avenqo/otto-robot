@@ -34,15 +34,22 @@ class _ControlPageState extends State<ControlPage> {
   UDP? _udp;
 
   bool _isReady = false;
-  bool _isSending = false;
 
-  // Camera
-  final String esp32Ip = '192.168.4.100';
+  // Camera: served by the Jetson (otto-bridge), same host as the UDP commands
   late final WebViewController _cameraController;
   Timer? _captureTimer;
 
-  String get streamUrl => 'http://$esp32Ip:81/stream';
-  String get captureUrl => 'http://$esp32Ip/capture';
+  String get _cameraHost => _receiverIp ?? ROBOT_IP;
+  String get streamUrl => 'http://$_cameraHost:$DEFAULT_CAMERA_PORT/stream';
+  String get captureUrl => 'http://$_cameraHost:$DEFAULT_CAMERA_PORT/capture';
+
+  // Joystick: the bridge stops Otto when commands stop arriving, so while the
+  // stick is held the current command is repeated at DRIVE_REPEAT.
+  static const _driveRepeat = Duration(milliseconds: 100);
+  Timer? _driveTimer;
+  double _joyX = 0;
+  double _joyY = 0;
+  bool _moving = false;
 
   @override
   void initState() {
@@ -50,6 +57,7 @@ class _ControlPageState extends State<ControlPage> {
 
     _initCamera();
     _initUDP();
+    _driveTimer = Timer.periodic(_driveRepeat, (_) => _sendDrive());
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSettings();
@@ -142,22 +150,27 @@ class _ControlPageState extends State<ControlPage> {
   // UDP SAFE SEND
   // =========================
   Future<void> _send(String cmd) async {
-    if (_isSending) return;
     if (_udp == null || _endpoint == null) return;
+    // No in-flight guard: several commands per tick (e.g. forward + left) must all go out.
+    await _udp!.send(utf8.encode(cmd), _endpoint!);
+  }
 
-    _isSending = true;
+  void _sendDrive() {
+    final p = math.sqrt(_joyX * _joyX + _joyY * _joyY);
+    if (p < 0.1) return; // released: the stop was sent by the listener
 
-    try {
-      await _udp!.send(utf8.encode(cmd), _endpoint!);
-    } finally {
-      _isSending = false;
-    }
+    final speed = (p * 100).toInt();
+    if (_joyY < -0.5) _send('mf:$speed');
+    if (_joyY > 0.5) _send('mb:$speed');
+    if (_joyX < -0.5) _send('ml:$speed');
+    if (_joyX > 0.5) _send('mr:$speed');
   }
 
   @override
   void dispose() {
     _udp?.close();
     _captureTimer?.cancel();
+    _driveTimer?.cancel();
     super.dispose();
   }
 
@@ -257,22 +270,18 @@ class _ControlPageState extends State<ControlPage> {
             child: Joystick(
               mode: JoystickMode.all,
               listener: (d) {
-                final x = d.x;
-                final y = d.y;
+                _joyX = d.x;
+                _joyY = d.y;
 
-                final p = math.sqrt(x * x + y * y);
-
+                final p = math.sqrt(_joyX * _joyX + _joyY * _joyY);
                 if (p < 0.1) {
-                  _send('ms:0');
+                  if (_moving) {
+                    _moving = false;
+                    _send('ms:0');
+                  }
                   return;
                 }
-
-                final speed = (p * 100).toInt();
-
-                if (y < -0.5) _send('mf:$speed');
-                if (y > 0.5) _send('mb:$speed');
-                if (x < -0.5) _send('ml:$speed');
-                if (x > 0.5) _send('mr:$speed');
+                _moving = true;
               },
             ),
           );

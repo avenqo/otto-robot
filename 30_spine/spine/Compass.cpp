@@ -22,6 +22,7 @@ bool Compass::begin() {
   Wire.setSCL(OTTO_PIN_I2C0_SCL);
   Wire.begin();
   Wire.setClock(100000);
+  Wire.setTimeout(I2C_TIMEOUT_MS, true);  // never block loop() on a stuck bus
 
   Wire.beginTransmission(address_);
   Wire.write(REG_CONFIG_A);

@@ -12,6 +12,7 @@ bool PcfExpander::begin() {
   Wire.setSCL(OTTO_PIN_I2C0_SCL);
   Wire.begin();
   Wire.setClock(100000);  // PCF8574 is specified for 100 kHz
+  Wire.setTimeout(I2C_TIMEOUT_MS, true);  // never block loop() on a stuck bus
   shadow_ = inputMask_;   // all outputs low, inputs (and unused) high
   return send();
 }

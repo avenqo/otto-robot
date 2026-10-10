@@ -39,6 +39,7 @@ constexpr unsigned long COMPASS_TEST_INTERVAL_MS = 100;
 
 char lineBuf[64];
 uint8_t lineLen = 0;
+bool lineOverflow = false;  // line too long: discard everything up to the next '\n'
 
 void applyDrive(float linearMmS, float angularMradS) {
   float omegaRadS = angularMradS / 1000.0f;
@@ -88,11 +89,18 @@ void printCompassRaw() {
 void handleLine(const char* line) {
   float a, b;
 
-  if (line[0] == 'V' && sscanf(line, "V,%f,%f", &a, &b) == 2) {
-    applyDrive(a, b);
-    lastCommandMs = millis();
-  } else if (line[0] == 'M' && sscanf(line, "M,%f,%f", &a, &b) == 2) {
-    applyRaw(a, b);
+  if ((line[0] == 'V' || line[0] == 'M') &&
+      sscanf(line + 1, ",%f,%f", &a, &b) == 2) {
+    // sscanf accepts "nan"/"inf"; never feed those to the motor math.
+    if (!isfinite(a) || !isfinite(b)) {
+      Serial.println(F("invalid value"));
+      return;
+    }
+    if (line[0] == 'V') {
+      applyDrive(a, b);
+    } else {
+      applyRaw(a, b);
+    }
     lastCommandMs = millis();
   } else if (line[0] == 'w' && line[1] == '\0') {
     applyRaw(TEST_SPEED_MM_S, TEST_SPEED_MM_S);
@@ -129,14 +137,20 @@ void readSerial() {
   while (Serial.available() > 0) {
     char c = Serial.read();
     if (c == '\n') {
-      lineBuf[lineLen] = '\0';
-      handleLine(lineBuf);
+      if (lineOverflow) {
+        Serial.println(F("line too long, dropped"));
+        lineOverflow = false;
+      } else {
+        lineBuf[lineLen] = '\0';
+        handleLine(lineBuf);
+      }
       lineLen = 0;
-    } else if (c != '\r' && lineLen < sizeof(lineBuf) - 1) {
+    } else if (c == '\r' || lineOverflow) {
+      // ignore CR, and the rest of an overlong line
+    } else if (lineLen < sizeof(lineBuf) - 1) {
       lineBuf[lineLen++] = c;
-    } else if (lineLen >= sizeof(lineBuf) - 1) {
-      // Line too long / garbage — drop it and resync on the next '\n'.
-      lineLen = 0;
+    } else {
+      lineOverflow = true;
     }
   }
 }
@@ -144,7 +158,8 @@ void readSerial() {
 void sendTelemetry() {
   int16_t cx, cy, cz;
   compass.readRaw(cx, cy, cz);
-  float headingDeg = compass.headingDeg();  // NAN if the read above failed
+  float headingDeg = compass.headingDeg();
+  if (isnan(headingDeg)) headingDeg = -1.0f;  // read failed: -1 = invalid
   // TODO: lat/lon/fix from GPS Neo-6M module
   float lat = 0.0f, lon = 0.0f;
   int gpsFix = 0;
@@ -190,11 +205,15 @@ void setup() {
   printHelp();
 
   Serial.println(F("=== OTTO: Setup done ==="));
+
+  // Started last: setup() may wait up to 3 s for the USB host.
+  rp2040.wdt_begin(HW_WATCHDOG_MS);
 }
 
 // -------------- Loop ---------------------
 
 void loop() {
+  rp2040.wdt_reset();
   readSerial();
 
   if (millis() - lastCommandMs > DRIVE_COMMAND_TIMEOUT_MS) {

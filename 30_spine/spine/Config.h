@@ -98,9 +98,15 @@ constexpr float MAX_SPEED_MM_S = 377.0f;
 constexpr int PWM_MAX = 255;
 
 // --- Protocol / safety ---
-constexpr unsigned long DRIVE_COMMAND_TIMEOUT_MS = 2000;//500;
-constexpr unsigned long TELEMETRY_INTERVAL_MS = 500; //100;
+constexpr unsigned long DRIVE_COMMAND_TIMEOUT_MS = 500;
+constexpr unsigned long TELEMETRY_INTERVAL_MS = 100;
 constexpr unsigned long SERIAL_BAUD = 115200;
+// Hardware watchdog: resets the RP2040 if loop() stops running (e.g. hung
+// bus). Must be > the worst-case loop time. Motor EN pins fall back to
+// inputs on reset, so the drivers' EN pull-downs/jumpers define the idle state.
+constexpr uint32_t HW_WATCHDOG_MS = 1000;
+// I2C transfers give up after this long instead of blocking loop().
+constexpr uint32_t I2C_TIMEOUT_MS = 25;
 
 // Speed used by the single-letter manual test commands (w/a/s/d), mm/s.
 constexpr float TEST_SPEED_MM_S = 150.0f;

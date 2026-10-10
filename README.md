@@ -20,7 +20,7 @@ flowchart TD
 | RP2040 | `spine` | Real-time driving and close-range sensing — motors, compass, GPS, radar, microphone, displays, head servo, rain/light/vibration sensors |
 | Flutter App | — | Remote control and live camera view, connects to the Jetson |
 
-The full hardware and pin-budget breakdown lives in [`10_concepts/otto-concept.md`](docs/otto-concept.md).
+The full hardware and pin-budget breakdown lives in [`10_concepts/otto-concept.md`](10_concepts/otto-concept.md).
 
 ## Hardware
 
@@ -58,12 +58,28 @@ Jetson → RP2040:  V,<linear_mm_s>,<angular_mrad_s>\n
 RP2040 → Jetson:  T,<heading_deg>,<lat>,<lon>,<gps_fix>,<radar>,<batt_mV>\n
 ```
 
-A watchdog on the RP2040 stops the motors if no drive command arrives within 500 ms, independent of the state of the serial connection or the app.
+`heading_deg` is `-1.0` when the compass read failed. `V` values must be finite numbers; anything else is rejected with an `invalid value` message.
+
+A watchdog on the RP2040 stops the motors if no drive command arrives within 500 ms, independent of the state of the serial connection or the app. A second, hardware watchdog (1 s) resets the RP2040 if the main loop ever hangs (e.g. a stuck I2C bus); I2C transfers also have a 25 ms timeout.
+
+## Build & Flash (spine)
+
+- Toolchain: Arduino IDE 2 / `arduino-cli` with the [arduino-pico](https://github.com/earlephilhower/arduino-pico) core (board package URL: `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`).
+- Board: `rp2040:rp2040:rpipico`, USB Stack: *Pico SDK* (native USB-CDC serial).
+- Build and upload (hold BOOTSEL while plugging in the first time, later uploads reset automatically):
+
+```bash
+arduino-cli core install rp2040:rp2040 --additional-urls <package URL above>
+arduino-cli compile --fqbn rp2040:rp2040:rpipico 30_spine/spine
+arduino-cli upload  --fqbn rp2040:rp2040:rpipico -p /dev/ttyACM0 30_spine/spine
+```
+
+- Test: open the serial monitor at 115200 baud with *Newline* line ending and type `?` for the list of manual commands.
 
 ## Status
 
 - Manual driving over WiFi: working (current platform)
-- Lidar, webcam, RP2040 sensor suite: in progress, see `docs/otto-concept.md` for the current build plan
+- Lidar, webcam, RP2040 sensor suite: in progress, see `10_concepts/otto-concept.md` for the current build plan
 - Autonomous navigation, garden mapping, animal detection: planned
 - Visitor interaction over the garden fence: planned ("advanced" stretch goal)
 
@@ -74,4 +90,5 @@ A watchdog on the RP2040 stops the motors if no drive command arrives within 500
   otto-concept.md   — architecture, hardware, and pin-budget concept document
 20_hardware   — description of hardware & 3D mechanics
 30_spine   — RP2040 based software for sensor reading
+40_brain   — Jetson Orin Nano: spine bridge, app API, (later) ROS2/navigation
 ```
