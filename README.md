@@ -91,4 +91,5 @@ arduino-cli upload  --fqbn rp2040:rp2040:rpipico -p /dev/ttyACM0 30_spine/spine
 20_hardware   — description of hardware & 3D mechanics
 30_spine   — RP2040 based software for sensor reading
 40_brain   — Jetson Orin Nano: spine bridge, app API, (later) ROS2/navigation
+50_app     — Flutter remote-control app (joystick, live video), talks to the Jetson
 ```

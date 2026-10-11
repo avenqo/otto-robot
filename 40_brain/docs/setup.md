@@ -44,8 +44,38 @@ Tick items off as you go and note deviations at the bottom.
 5. In the app: *Einstellungen* → IP = Jetson IP, port 4210.
 6. Firewall: allow UDP 4210 and TCP 8081 if `ufw` is active.
 
+## Using the venv (every new shell)
+`otto-bridge` is installed inside `40_brain/bridge/.venv`, so it only exists as a command while that venv is active. The current directory does not matter.
+
+```bash
+source ~/git/otto-robot/40_brain/bridge/.venv/bin/activate   # prompt shows (.venv)
+otto-bridge serve
+deactivate                                                    # leave the venv
+```
+
+Without activating, call it by its full path (this is also what a systemd service has to do, since services have no activated venv):
+
+```bash
+~/git/otto-robot/40_brain/bridge/.venv/bin/otto-bridge serve
+```
+
+If the venv does not exist yet or the command is missing, redo step 3 of section 1 (`python3 -m venv … && pip install -e '.[dev]'`).
+
 ## Identify a specific Pico (optional)
-`udevadm info -a -n /dev/ttyACM0 | grep serial` — use the value in `ATTRS{serial}==` to pin the rule.
+
+**Why this matters:** `udev/99-otto.rules` currently matches the Pico only by vendor ID (`2e8a`, Raspberry Pi), so *every* RP2040 on the Jetson would get the name `/dev/otto-spine`. That is fine while exactly one is attached. With a second RP2040 (e.g. a board for displays or sensors) both compete for the same name and it points to whichever was plugged in last — possibly the one with no motor driver behind it. Pin the rule to the Pico's unique serial number before adding a second one.
+
+1. Read the serial of the Pico (adjust `ttyACM0` if it is `ttyACM1`):
+   ```bash
+   udevadm info -a -n /dev/ttyACM0 | grep serial
+   ```
+   The output lists the whole device chain; take the `ATTRS{serial}` of the Pico itself (usually the first hit, a hex string like `E6614C311B123456`), not the one of the Jetson's USB controller.
+2. Add it to the rule in `40_brain/udev/99-otto.rules`:
+   ```
+   SUBSYSTEM=="tty", ATTRS{idVendor}=="2e8a", ATTRS{serial}=="E6614C311B123456", SYMLINK+="otto-spine", GROUP="dialout", MODE="0660"
+   ```
+   A second Pico gets its own line with its own serial and its own symlink name.
+3. Reinstall and reload as in section 1 (`cp`, `udevadm control --reload`, `udevadm trigger`), replug, and check `ls -l /dev/otto-spine`.
 
 ## Deviations / notes
 (none yet)

@@ -33,6 +33,8 @@ print(link.telemetry)         # None if nothing arrived for 1 s
 link.close()                  # sends stop
 ```
 
+The CLI lives in the bridge's venv: `source 40_brain/bridge/.venv/bin/activate` first (see [docs/setup.md](docs/setup.md#using-the-venv-every-new-shell)).
+
 CLI: `otto-bridge monitor | drive --linear 100 --angular 0 --duration 2 | stop` (default port `/dev/otto-spine`).
 
 ## App gateway (stage 2a)
